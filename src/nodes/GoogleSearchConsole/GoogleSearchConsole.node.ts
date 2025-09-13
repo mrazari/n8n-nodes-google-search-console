@@ -5,6 +5,7 @@ import {
   IExecuteFunctions,
   ILoadOptionsFunctions,
   NodeOperationError,
+  IDataObject,
 } from 'n8n-workflow';
 
 /* ========= Helpers ========= */
@@ -301,8 +302,6 @@ export class GoogleSearchConsole implements INodeType {
 
           { name: 'Page', value: 'page' },
           { name: 'Query', value: 'query' },
-          { name: 'Country', value: 'country' },
-          { name: 'Device', value: 'device' },
         ],
         default: ['page'],
         displayOptions: { show: { resource: ['site'], operation: ['getPageInsights'] } },
@@ -315,6 +314,7 @@ export class GoogleSearchConsole implements INodeType {
 				typeOptions: { multipleValues: true },
 				default: {},
 				placeholder: 'Add filter',
+				displayOptions: { show: { resource: ['site'], operation: ['getPageInsights', 'comparePageInsights'] } },
 				options: [{
 					displayName: 'Filter',
 					name: 'filter',
@@ -322,9 +322,6 @@ export class GoogleSearchConsole implements INodeType {
 						{ displayName: 'Dimension', name: 'dimension', type: 'options', options: [
 							{ name: 'Query', value: 'query' },
 							{ name: 'Page', value: 'page' },
-							{ name: 'Device', value: 'device' },
-							{ name: 'Country', value: 'country' },
-							{ name: 'Search Appearance', value: 'searchAppearance' },
 						], default: 'query' },
 						{ displayName: 'Operator', name: 'operator', type: 'options', options: [
 							{ name: 'Equals', value: 'equals' },
@@ -338,13 +335,7 @@ export class GoogleSearchConsole implements INodeType {
 							{ name: 'OR (any match)', value: 'or' },
 							{ name: 'AND (all match)', value: 'and' },
 						], default: 'or' },
-						{ displayName: 'Expression', name: 'expression', type: 'string', default: '', placeholder: 'e.g. /blog/, summer sale' },
-						{ displayName: 'Values (Device)', name: 'valuesDevice', type: 'multiOptions', options: [
-							{ name: 'DESKTOP', value: 'DESKTOP' },
-							{ name: 'MOBILE', value: 'MOBILE' },
-							{ name: 'TABLET', value: 'TABLET' },
-						], default: [], displayOptions: { show: { dimension: ['device'] } } },
-						{ displayName: 'Values (Country, comma-separated)', name: 'valuesCountry', type: 'string', default: '', placeholder: 'IR,US,FR', displayOptions: { show: { dimension: ['country'] } } },
+						{ displayName: 'Expression(s)', name: 'expression', type: 'string', default: '', placeholder: 'e.g. /blog/, summer sale (comma-separated for multiple)' },
 					],
 				}],
 				description: 'Add one or more filters like in the Search Console UI. Each filter becomes a filter group; groups are ANDed together.',
@@ -544,8 +535,6 @@ export class GoogleSearchConsole implements INodeType {
           { name: 'Date', value: 'date' },
           { name: 'Page', value: 'page' },
           { name: 'Query', value: 'query' },
-          { name: 'Country', value: 'country' },
-          { name: 'Device', value: 'device' },
         ],
         default: ['page'],
         displayOptions: { show: { resource: ['site'], operation: ['comparePageInsights'] } },
@@ -590,41 +579,6 @@ export class GoogleSearchConsole implements INodeType {
   };
 
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		// Build dimensionFilterGroups from dynamic Filters with multi-value support
-		const filtersCollection = this.getNodeParameter('filters.filter', 0, []) as IDataObject[];
-		const dimensionFilterGroups: IDataObject[] = [];
-
-		const makeFilter = (dimension: string, operator: string, expression: string) => ({
-			dimension,
-			operator,
-			expression,
-		});
-
-		if (Array.isArray(filtersCollection) && filtersCollection.length) {
-			for (const f of filtersCollection) {
-				const dimension = (f as any).dimension as string;
-				const operator = (f as any).operator as string || 'contains';
-				const valuesJoin = ((f as any).valuesJoin as string) || 'or';
-				const expr = ((f as any).expression as string || '').trim();
-				let values: string[] = [];
-
-				if (dimension === 'device') {
-					values = Array.isArray((f as any).valuesDevice) ? ((f as any).valuesDevice as string[]) : [];
-				} else if (dimension === 'country') {
-					const raw = ((f as any).valuesCountry as string || '').trim();
-					if (raw) values = raw.split(',').map(v => v.trim()).filter(Boolean);
-				}
-
-				if (!values.length && expr) values = [expr];
-
-				if (values.length === 1) {
-					dimensionFilterGroups.push({ groupType: 'and', filters: [ makeFilter(dimension, operator, values[0]) ] } as IDataObject);
-				} else if (values.length > 1) {
-					dimensionFilterGroups.push({ groupType: valuesJoin, filters: values.map(v => makeFilter(dimension, operator, v)) } as IDataObject);
-				}
-			}
-		}
-
     const items = this.getInputData();
     const returnData: INodeExecutionData[] = [];
 
@@ -634,6 +588,31 @@ export class GoogleSearchConsole implements INodeType {
       const pushErr = (e: unknown) => { if (this.continueOnFail()) pushOk({ error: (e as Error)?.message ?? e }); else throw e; };
 
       try {
+        // Build dimensionFilterGroups (per item) from Filters; supports multiple comma-separated expressions for page/query
+        const filtersCollection = this.getNodeParameter('filters.filter', i, []) as IDataObject[];
+        const dimensionFilterGroups: IDataObject[] = [];
+        const makeFilter = (dimension: string, operator: string, expression: string) => ({ dimension, operator, expression });
+
+        if (Array.isArray(filtersCollection) && filtersCollection.length) {
+          for (const f of filtersCollection) {
+            const dimension = (f as any).dimension as string;
+            if (dimension !== 'page' && dimension !== 'query') continue; // limit to page/query
+            const operator = ((f as any).operator as string) || 'contains';
+            const valuesJoin = ((f as any).valuesJoin as string) || 'or';
+            const exprRaw = (((f as any).expression as string) || '').trim();
+            let values: string[] = [];
+
+            if (exprRaw) {
+              values = exprRaw.split(',').map(v => v.trim()).filter(Boolean);
+            }
+
+            if (values.length === 1) {
+              dimensionFilterGroups.push({ groupType: 'and', filters: [ makeFilter(dimension, operator, values[0]) ] } as IDataObject);
+            } else if (values.length > 1) {
+              dimensionFilterGroups.push({ groupType: valuesJoin, filters: values.map(v => makeFilter(dimension, operator, v)) } as IDataObject);
+            }
+          }
+        }
         if (operation === 'getSites') {
           const resp = await this.helpers.httpRequestWithAuthentication.call(
             this,
@@ -731,7 +710,11 @@ export class GoogleSearchConsole implements INodeType {
 
           const rowLimit   = ((this.getNodeParameter('rowLimitCompare', i) as number) || 1000);
           const searchType = (this.getNodeParameter('searchTypeCompare', i) as string) || 'web';
-          const baseBody = { dimensions: dims, searchType };
+          const baseBody = {
+            dimensions: dims,
+            searchType,
+            ...(dimensionFilterGroups.length ? { dimensionFilterGroups } : {}),
+          };
 
           const rowsA = await fetchAllRows(this, siteUrl, { ...baseBody, ...rangeA, rowLimit: Math.max(1, Math.min(rowLimit, 25000)) }, rowLimit);
           const rowsB = await fetchAllRows(this, siteUrl, { ...baseBody, ...rangeB, rowLimit: Math.max(1, Math.min(rowLimit, 25000)) }, rowLimit);
@@ -744,11 +727,15 @@ export class GoogleSearchConsole implements INodeType {
             const ra = mapA.get(k);
             const rb = mapB.get(k);
 
-            const valsA = ra ?? { keys: (ra?.keys ?? rb?.keys ?? []), clicks: 0, impressions: 0, ctr: 0, position: 0 };
-            const valsB = rb ?? { keys: (rb?.keys ?? ra?.keys ?? []), clicks: 0, impressions: 0, ctr: 0, position: 0 };
+            const emptyFrom = (keys?: string[]): GscQueryRow => ({
+              keys: keys ?? [], clicks: 0, impressions: 0, ctr: 0, position: 0,
+            });
+
+            const valsA: GscQueryRow = ra ?? emptyFrom(ra?.keys ?? rb?.keys);
+            const valsB: GscQueryRow = rb ?? emptyFrom(rb?.keys ?? ra?.keys);
 
             const out: Record<string, any> = {};
-            (valsA.keys ?? valsB.keys ?? []).forEach((v, idx) => { out[dims[idx]] = v; });
+            (valsA.keys ?? valsB.keys ?? []).forEach((v: string, idx: number) => { out[dims[idx]] = v; });
 
             out.clicks_a = valsA.clicks;         out.clicks_b = valsB.clicks;         out.clicks_diff = valsA.clicks - valsB.clicks;
             out.impr_a   = valsA.impressions;    out.impr_b   = valsB.impressions;    out.impr_diff   = valsA.impressions - valsB.impressions;
