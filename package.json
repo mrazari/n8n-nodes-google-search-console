@@ -1,6 +1,6 @@
 {
     "name": "n8n-nodes-google-search-console",
-    "version": "1.0.37",
+    "version": "1.0.38",
     "description": "n8n node for Google Search Console API integration",
     "keywords": [
         "n8n-community-node-package",

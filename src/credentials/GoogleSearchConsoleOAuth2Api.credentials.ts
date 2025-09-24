@@ -6,13 +6,14 @@ const scopes = [
 ];
 
 export class GoogleSearchConsoleOAuth2Api implements ICredentialType {
-	name = 'GoogleSearchConsoleOAuth2Api';
+	name = 'googleSearchConsoleOAuth2Api';
 
-	extends = ['googleOAuth2Api']; // ارث‌بری از credential داخلی گوگل
+	extends = ['googleOAuth2Api'];
 
 	displayName = 'Google Search Console OAuth2 API';
 
-	documentationUrl = 'google/oauth-single-service'; // لینک داکیومنت داخل n8n
+	// تغییر لینک به مستندات رسمی گوگل
+	documentationUrl = 'https://developers.google.com/webmaster-tools/search-console-api-original/v3/quickstart';
 
 	properties: INodeProperties[] = [
 		{
