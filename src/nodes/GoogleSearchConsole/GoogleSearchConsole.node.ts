@@ -79,7 +79,7 @@ async function fetchAllRows(
   const perRequest = Math.max(100, Math.min(body.rowLimit ?? 1000, 25000));
 
   while (rows.length < targetLimit) {
-    const resp = await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'GoogleSearchConsoleOAuth2Api', {
+    const resp = await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'googleSearchConsoleOAuth2Api', {
       method: 'POST',
       url: `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
       body: { ...body, rowLimit: perRequest, startRow },
@@ -176,7 +176,7 @@ export class GoogleSearchConsole implements INodeType {
     subtitle: '={{$parameter.operation}}',
     inputs: ['main'],
     outputs: ['main'],
-    credentials: [{ name: 'GoogleSearchConsoleOAuth2Api', required: true }],
+    credentials: [{ name: 'googleSearchConsoleOAuth2Api', required: true }],
     requestDefaults: {
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     },
@@ -297,9 +297,6 @@ export class GoogleSearchConsole implements INodeType {
         type: 'multiOptions',
         options: [
           { name: 'Date', value: 'date' },
-
-			
-
           { name: 'Page', value: 'page' },
           { name: 'Query', value: 'query' },
         ],
@@ -307,40 +304,39 @@ export class GoogleSearchConsole implements INodeType {
         displayOptions: { show: { resource: ['site'], operation: ['getPageInsights'] } },
       },
 
-			{
-				displayName: 'Filters',
-				name: 'filters',
-				type: 'fixedCollection',
-				typeOptions: { multipleValues: true },
-				default: {},
-				placeholder: 'Add filter',
-				displayOptions: { show: { resource: ['site'], operation: ['getPageInsights', 'comparePageInsights'] } },
-				options: [{
-					displayName: 'Filter',
-					name: 'filter',
-					values: [
-						{ displayName: 'Dimension', name: 'dimension', type: 'options', options: [
-							{ name: 'Query', value: 'query' },
-							{ name: 'Page', value: 'page' },
-						], default: 'query' },
-						{ displayName: 'Operator', name: 'operator', type: 'options', options: [
-							{ name: 'Equals', value: 'equals' },
-							{ name: 'Contains', value: 'contains' },
-							{ name: 'Not Equals', value: 'notEquals' },
-							{ name: 'Not Contains', value: 'notContains' },
-							{ name: 'Including Regex', value: 'includingRegex' },
-							{ name: 'Excluding Regex', value: 'excludingRegex' },
-						], default: 'contains' },
-						{ displayName: 'Combine Values With', name: 'valuesJoin', type: 'options', options: [
-							{ name: 'OR (any match)', value: 'or' },
-							{ name: 'AND (all match)', value: 'and' },
-						], default: 'or' },
-						{ displayName: 'Expression(s)', name: 'expression', type: 'string', default: '', placeholder: 'e.g. /blog/, summer sale (comma-separated for multiple)' },
-					],
-				}],
-				description: 'Add one or more filters like in the Search Console UI. Each filter becomes a filter group; groups are ANDed together.',
-			},
-
+      {
+        displayName: 'Filters',
+        name: 'filters',
+        type: 'fixedCollection',
+        typeOptions: { multipleValues: true },
+        default: {},
+        placeholder: 'Add filter',
+        displayOptions: { show: { resource: ['site'], operation: ['getPageInsights', 'comparePageInsights'] } },
+        options: [{
+          displayName: 'Filter',
+          name: 'filter',
+          values: [
+            { displayName: 'Dimension', name: 'dimension', type: 'options', options: [
+                { name: 'Query', value: 'query' },
+                { name: 'Page', value: 'page' },
+              ], default: 'query' },
+            { displayName: 'Operator', name: 'operator', type: 'options', options: [
+                { name: 'Equals', value: 'equals' },
+                { name: 'Contains', value: 'contains' },
+                { name: 'Not Equals', value: 'notEquals' },
+                { name: 'Not Contains', value: 'notContains' },
+                { name: 'Including Regex', value: 'includingRegex' },
+                { name: 'Excluding Regex', value: 'excludingRegex' },
+              ], default: 'contains' },
+            { displayName: 'Combine Values With', name: 'valuesJoin', type: 'options', options: [
+                { name: 'OR (any match)', value: 'or' },
+                { name: 'AND (all match)', value: 'and' },
+              ], default: 'or' },
+            { displayName: 'Expression(s)', name: 'expression', type: 'string', default: '', placeholder: 'e.g. /blog/, summer sale (comma-separated for multiple)' },
+          ],
+        }],
+        description: 'Add one or more filters like in the Search Console UI. Each filter becomes a filter group; groups are ANDed together.',
+      },
 
       /* ---------- inspectUrl ---------- */
       {
@@ -548,7 +544,7 @@ export class GoogleSearchConsole implements INodeType {
         try {
           const resp = await this.helpers.httpRequestWithAuthentication.call(
             this,
-            'GoogleSearchConsoleOAuth2Api',
+            'googleSearchConsoleOAuth2Api',
             { method: 'GET', url: 'https://www.googleapis.com/webmasters/v3/sites' },
           );
           const sites: GscSiteEntry[] = Array.isArray(resp?.siteEntry) ? resp.siteEntry : [];
@@ -584,11 +580,21 @@ export class GoogleSearchConsole implements INodeType {
 
     for (let i = 0; i < items.length; i++) {
       const operation = this.getNodeParameter('operation', i) as string;
+      
+      // استفاده از continueOnFail() به جای this.continueOnFail()
+      const continueOnFail = this.getNodeParameter('continueOnFail', i, false) as boolean;
+      
       const pushOk = (json: any) => returnData.push({ json, pairedItem: { item: i } });
-      const pushErr = (e: unknown) => { if (this.continueOnFail()) pushOk({ error: (e as Error)?.message ?? e }); else throw e; };
+      const pushErr = (e: unknown) => { 
+        if (continueOnFail) {
+          pushOk({ error: (e as Error)?.message ?? e });
+        } else {
+          throw e;
+        }
+      };
 
       try {
-        // Build dimensionFilterGroups (per item) from Filters; supports multiple comma-separated expressions for page/query
+        // Build dimensionFilterGroups (per item) from Filters
         const filtersCollection = this.getNodeParameter('filters.filter', i, []) as IDataObject[];
         const dimensionFilterGroups: IDataObject[] = [];
         const makeFilter = (dimension: string, operator: string, expression: string) => ({ dimension, operator, expression });
@@ -596,7 +602,7 @@ export class GoogleSearchConsole implements INodeType {
         if (Array.isArray(filtersCollection) && filtersCollection.length) {
           for (const f of filtersCollection) {
             const dimension = (f as any).dimension as string;
-            if (dimension !== 'page' && dimension !== 'query') continue; // limit to page/query
+            if (dimension !== 'page' && dimension !== 'query') continue;
             const operator = ((f as any).operator as string) || 'contains';
             const valuesJoin = ((f as any).valuesJoin as string) || 'or';
             const exprRaw = (((f as any).expression as string) || '').trim();
@@ -613,14 +619,16 @@ export class GoogleSearchConsole implements INodeType {
             }
           }
         }
+        
         if (operation === 'getSites') {
           const resp = await this.helpers.httpRequestWithAuthentication.call(
             this,
-            'GoogleSearchConsoleOAuth2Api',
+            'googleSearchConsoleOAuth2Api',
             { method: 'GET', url: 'https://www.googleapis.com/webmasters/v3/sites' },
           );
           const sites: GscSiteEntry[] = Array.isArray(resp?.siteEntry) ? resp.siteEntry : [];
-          sites.forEach((s) => pushOk({ resource: 'site', operation: 'getSites', ...s }));
+          // فقط بازگرداندن داده‌های API بدون اضافه کردن resource و operation
+          sites.forEach((s) => pushOk(s));
         }
 
         if (operation === 'getPageInsights') {
@@ -641,9 +649,16 @@ export class GoogleSearchConsole implements INodeType {
           const dimensions = this.getNodeParameter('dimensions', i) as string[];
 
           const body = {
-			...(dimensionFilterGroups.length ? { dimensionFilterGroups } : {}), startDate, endDate, dimensions, rowLimit: Math.max(1, Math.min(rowLimit, 25000)), searchType };
+            ...(dimensionFilterGroups.length ? { dimensionFilterGroups } : {}),
+            startDate,
+            endDate,
+            dimensions,
+            rowLimit: Math.max(1, Math.min(rowLimit, 25000)),
+            searchType
+          };
           const rows = await fetchAllRows(this, siteUrl, body, rowLimit);
-          rows.forEach((r) => pushOk({ resource: 'site', operation: 'getPageInsights', ...mapRow(dimensions, r) }));
+          // فقط بازگرداندن داده‌های API بدون اضافه کردن resource و operation
+          rows.forEach((r) => pushOk(mapRow(dimensions, r)));
         }
 
         if (operation === 'inspectUrl') {
@@ -663,15 +678,16 @@ export class GoogleSearchConsole implements INodeType {
 
           const resp = await this.helpers.httpRequestWithAuthentication.call(
             this,
-            'GoogleSearchConsoleOAuth2Api',
+            'googleSearchConsoleOAuth2Api',
             {
               method: 'POST',
               url: 'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
               body: { inspectionUrl, siteUrl, languageCode: languageCode || undefined },
             },
           );
+          // فقط بازگرداندن داده‌های API
           const result = resp?.inspectionResult || {};
-          pushOk({ resource: 'site', operation: 'inspectUrl', ...result });
+          pushOk(result);
         }
 
         /* ---------- Compare Page Insights ---------- */
@@ -716,8 +732,8 @@ export class GoogleSearchConsole implements INodeType {
             ...(dimensionFilterGroups.length ? { dimensionFilterGroups } : {}),
           };
 
-          const rowsA = await fetchAllRows(this, siteUrl, { ...baseBody, ...rangeA, rowLimit: Math.max(1, Math.min(rowLimit, 25000)) }, rowLimit);
-          const rowsB = await fetchAllRows(this, siteUrl, { ...baseBody, ...rangeB, rowLimit: Math.max(1, Math.min(rowLimit, 25000)) }, rowLimit);
+          const rowsA = await fetchAllRows(this, siteUrl, { ...baseBody, ...rangeA }, rowLimit);
+          const rowsB = await fetchAllRows(this, siteUrl, { ...baseBody, ...rangeB }, rowLimit);
 
           const mapA = rowsToMap(rowsA, dims);
           const mapB = rowsToMap(rowsB, dims);
@@ -742,11 +758,12 @@ export class GoogleSearchConsole implements INodeType {
             out.ctr_a    = valsA.ctr;            out.ctr_b    = valsB.ctr;            out.ctr_diff    = valsA.ctr - valsB.ctr;
             out.pos_a    = valsA.position;       out.pos_b    = valsB.position;       out.pos_diff    = valsA.position - valsB.position;
 
-            out.range_a = rangeA;  // { startDate, endDate }
+            out.range_a = rangeA;
             out.range_b = rangeB;
             out.compare_mode = compareMode;
 
-            returnData.push({ json: { resource: 'site', operation: 'comparePageInsights', ...out }, pairedItem: { item: i } });
+            // فقط بازگرداندن داده‌های پردازش شده بدون resource و operation
+            returnData.push({ json: out, pairedItem: { item: i } });
           }
         }
 
