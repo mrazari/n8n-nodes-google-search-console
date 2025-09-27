@@ -39,7 +39,6 @@ function defaultedRange(start?: string, end?: string) {
 
 function rangeFromPreset(mode: string, customStart?: string, customEnd?: string) {
   const end = customEnd ? new Date(customEnd) : new Date();
-  let start = customStart ? new Date(customStart) : new Date(end);
 
   if (mode !== 'custom') {
     const e = new Date(end);
@@ -168,7 +167,7 @@ export class GoogleSearchConsole implements INodeType {
     displayName: 'Google Search Console',
     name: 'googleSearchConsole',
     icon: 'file:googlesearchconsole.svg',
-    group: ['resource'],
+    group: ['input'],
     version: 1,
     description: 'Connect to Google Search Console API',
     usableAsTool: true,
@@ -185,6 +184,7 @@ export class GoogleSearchConsole implements INodeType {
         displayName: 'Resource',
         name: 'resource',
         type: 'options',
+				noDataExpression: true,
         options: [{ name: 'Site', value: 'site' }],
         default: 'site',
         required: true,
@@ -193,10 +193,11 @@ export class GoogleSearchConsole implements INodeType {
         displayName: 'Operation',
         name: 'operation',
         type: 'options',
+				noDataExpression: true,
         options: [
           { name: 'Get Sites', value: 'getSites', action: 'List verified sites' },
           { name: 'Get Page Insights', value: 'getPageInsights', action: 'Query search analytics' },
-          { name: 'Inspect URL', value: 'inspectUrl', action: 'URL Inspection (index status)' },
+          { name: 'Inspect URL', value: 'inspectUrl', action: 'Url inspection index status' },
           { name: 'Compare Page Insights', value: 'comparePageInsights', action: 'Compare search analytics between two date ranges' },
         ],
         default: 'getSites',
@@ -210,17 +211,18 @@ export class GoogleSearchConsole implements INodeType {
         name: 'siteUrlMode',
         type: 'options',
         options: [
-          { name: 'Pick from My Verified Sites', value: 'list' },
+          { name: 'Pick From My Verified Sites', value: 'list' },
           { name: 'Enter Manually', value: 'manual' },
         ],
         default: 'list',
         displayOptions: { show: { resource: ['site'], operation: ['getPageInsights'] } },
       },
       {
-        displayName: 'Site URL',
+        displayName: 'Site URL Name or ID',
         name: 'siteUrl',
         type: 'options',
         typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
+        description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
         displayOptions: {
           show: { resource: ['site'], operation: ['getPageInsights'], siteUrlMode: ['list'] },
         },
@@ -244,11 +246,11 @@ export class GoogleSearchConsole implements INodeType {
         name: 'dateRangeMode',
         type: 'options',
         options: [
-          { name: 'Last 7 Days', value: 'last7d' },
+          { name: 'Custom', value: 'custom' },
+          { name: 'Last 12 Months', value: 'last12mo' },
           { name: 'Last 28 Days', value: 'last28d' },
           { name: 'Last 3 Months', value: 'last3mo' },
-          { name: 'Last 12 Months', value: 'last12mo' },
-          { name: 'Custom', value: 'custom' },
+          { name: 'Last 7 Days', value: 'last7d' },
         ],
         default: 'last28d',
         hint: 'Select preset or Custom to set exact dates.',
@@ -321,16 +323,16 @@ export class GoogleSearchConsole implements INodeType {
                 { name: 'Page', value: 'page' },
               ], default: 'query' },
             { displayName: 'Operator', name: 'operator', type: 'options', options: [
-                { name: 'Equals', value: 'equals' },
                 { name: 'Contains', value: 'contains' },
-                { name: 'Not Equals', value: 'notEquals' },
-                { name: 'Not Contains', value: 'notContains' },
-                { name: 'Including Regex', value: 'includingRegex' },
+                { name: 'Equals', value: 'equals' },
                 { name: 'Excluding Regex', value: 'excludingRegex' },
+                { name: 'Including Regex', value: 'includingRegex' },
+                { name: 'Not Contains', value: 'notContains' },
+                { name: 'Not Equals', value: 'notEquals' },
               ], default: 'contains' },
             { displayName: 'Combine Values With', name: 'valuesJoin', type: 'options', options: [
-                { name: 'OR (any match)', value: 'or' },
-                { name: 'AND (all match)', value: 'and' },
+                { name: 'AND (All Match)', value: 'and' },
+                { name: 'OR (Any Match)', value: 'or' },
               ], default: 'or' },
             { displayName: 'Expression(s)', name: 'expression', type: 'string', default: '', placeholder: 'e.g. /blog/, summer sale (comma-separated for multiple)' },
           ],
@@ -344,17 +346,18 @@ export class GoogleSearchConsole implements INodeType {
         name: 'inspectSiteUrlMode',
         type: 'options',
         options: [
-          { name: 'Pick from My Verified Sites', value: 'list' },
+          { name: 'Pick From My Verified Sites', value: 'list' },
           { name: 'Enter Manually', value: 'manual' },
         ],
         default: 'list',
         displayOptions: { show: { resource: ['site'], operation: ['inspectUrl'] } },
       },
       {
-        displayName: 'Site URL',
+        displayName: 'Site URL Name or ID',
         name: 'inspectSiteUrl',
         type: 'options',
         typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
+        description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
         displayOptions: {
           show: { resource: ['site'], operation: ['inspectUrl'], inspectSiteUrlMode: ['list'] },
         },
@@ -395,17 +398,18 @@ export class GoogleSearchConsole implements INodeType {
         name: 'siteUrlModeCompare',
         type: 'options',
         options: [
-          { name: 'Pick from My Verified Sites', value: 'list' },
+          { name: 'Pick From My Verified Sites', value: 'list' },
           { name: 'Enter Manually', value: 'manual' },
         ],
         default: 'list',
         displayOptions: { show: { resource: ['site'], operation: ['comparePageInsights'] } },
       },
       {
-        displayName: 'Site URL',
+        displayName: 'Site URL Name or ID',
         name: 'siteUrlCompare',
         type: 'options',
         typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
+        description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
         displayOptions: {
           show: { resource: ['site'], operation: ['comparePageInsights'], siteUrlModeCompare: ['list'] },
         },
@@ -431,11 +435,11 @@ export class GoogleSearchConsole implements INodeType {
         name: 'dateRangeModeA',
         type: 'options',
         options: [
-          { name: 'Last 7 Days', value: 'last7d' },
+          { name: 'Custom', value: 'custom' },
+          { name: 'Last 12 Months', value: 'last12mo' },
           { name: 'Last 28 Days', value: 'last28d' },
           { name: 'Last 3 Months', value: 'last3mo' },
-          { name: 'Last 12 Months', value: 'last12mo' },
-          { name: 'Custom', value: 'custom' },
+          { name: 'Last 7 Days', value: 'last7d' },
         ],
         default: 'last28d',
         displayOptions: { show: { resource: ['site'], operation: ['comparePageInsights'] } },
@@ -473,11 +477,11 @@ export class GoogleSearchConsole implements INodeType {
         name: 'dateRangeModeB',
         type: 'options',
         options: [
-          { name: 'Last 7 Days', value: 'last7d' },
+          { name: 'Custom', value: 'custom' },
+          { name: 'Last 12 Months', value: 'last12mo' },
           { name: 'Last 28 Days', value: 'last28d' },
           { name: 'Last 3 Months', value: 'last3mo' },
-          { name: 'Last 12 Months', value: 'last12mo' },
-          { name: 'Custom', value: 'custom' },
+          { name: 'Last 7 Days', value: 'last7d' },
         ],
         default: 'last28d',
         displayOptions: { show: { resource: ['site'], operation: ['comparePageInsights'], compareMode: ['custom'] } },
@@ -503,7 +507,7 @@ export class GoogleSearchConsole implements INodeType {
 
       /* ---- Shared options ---- */
       {
-        displayName: 'Row Limit (per range)',
+        displayName: 'Row Limit (Per Range)',
         name: 'rowLimitCompare',
         type: 'number',
         typeOptions: { minValue: 1, maxValue: 25000 },
@@ -550,7 +554,7 @@ export class GoogleSearchConsole implements INodeType {
           const sites: GscSiteEntry[] = Array.isArray(resp?.siteEntry) ? resp.siteEntry : [];
           if (!sites.length) {
             return [{
-              name: 'No verified properties found — verify your site in Google Search Console first.',
+              name: 'No Verified Properties Found — Verify Your Site in Google Search Console First.',
               value: '__NO_SITES__',
             }];
           }
@@ -580,12 +584,11 @@ export class GoogleSearchConsole implements INodeType {
 
     for (let i = 0; i < items.length; i++) {
       const operation = this.getNodeParameter('operation', i) as string;
-      
-      // استفاده از continueOnFail() به جای this.continueOnFail()
+
       const continueOnFail = this.getNodeParameter('continueOnFail', i, false) as boolean;
-      
+
       const pushOk = (json: any) => returnData.push({ json, pairedItem: { item: i } });
-      const pushErr = (e: unknown) => { 
+      const pushErr = (e: unknown) => {
         if (continueOnFail) {
           pushOk({ error: (e as Error)?.message ?? e });
         } else {
@@ -619,7 +622,7 @@ export class GoogleSearchConsole implements INodeType {
             }
           }
         }
-        
+
         if (operation === 'getSites') {
           const resp = await this.helpers.httpRequestWithAuthentication.call(
             this,
@@ -627,7 +630,6 @@ export class GoogleSearchConsole implements INodeType {
             { method: 'GET', url: 'https://www.googleapis.com/webmasters/v3/sites' },
           );
           const sites: GscSiteEntry[] = Array.isArray(resp?.siteEntry) ? resp.siteEntry : [];
-          // فقط بازگرداندن داده‌های API بدون اضافه کردن resource و operation
           sites.forEach((s) => pushOk(s));
         }
 
@@ -657,7 +659,6 @@ export class GoogleSearchConsole implements INodeType {
             searchType
           };
           const rows = await fetchAllRows(this, siteUrl, body, rowLimit);
-          // فقط بازگرداندن داده‌های API بدون اضافه کردن resource و operation
           rows.forEach((r) => pushOk(mapRow(dimensions, r)));
         }
 
@@ -685,7 +686,6 @@ export class GoogleSearchConsole implements INodeType {
               body: { inspectionUrl, siteUrl, languageCode: languageCode || undefined },
             },
           );
-          // فقط بازگرداندن داده‌های API
           const result = resp?.inspectionResult || {};
           pushOk(result);
         }
@@ -747,8 +747,8 @@ export class GoogleSearchConsole implements INodeType {
               keys: keys ?? [], clicks: 0, impressions: 0, ctr: 0, position: 0,
             });
 
-            const valsA: GscQueryRow = ra ?? emptyFrom(ra?.keys ?? rb?.keys);
-            const valsB: GscQueryRow = rb ?? emptyFrom(rb?.keys ?? ra?.keys);
+            const valsA: GscQueryRow = ra ?? emptyFrom((ra as GscQueryRow | undefined)?.keys ?? (rb as GscQueryRow | undefined)?.keys);
+            const valsB: GscQueryRow = rb ?? emptyFrom((rb as GscQueryRow | undefined)?.keys ?? (ra as GscQueryRow | undefined)?.keys);
 
             const out: Record<string, any> = {};
             (valsA.keys ?? valsB.keys ?? []).forEach((v: string, idx: number) => { out[dims[idx]] = v; });
@@ -762,7 +762,6 @@ export class GoogleSearchConsole implements INodeType {
             out.range_b = rangeB;
             out.compare_mode = compareMode;
 
-            // فقط بازگرداندن داده‌های پردازش شده بدون resource و operation
             returnData.push({ json: out, pairedItem: { item: i } });
           }
         }
