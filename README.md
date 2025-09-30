@@ -1,54 +1,48 @@
-# Google Search Console - n8n Custom Node
+![Banner image](https://user-images.githubusercontent.com/10284570/173569848-c624317f-42b1-45a6-ab09-f0ea3c247648.png)
 
-This custom node for n8n allows you to connect to the official Google Search Console API and retrieve information about registered sites and their page performance.
+# n8n-nodes-starter
 
-## Features
+This repo contains example nodes to help you get started building your own custom integrations for [n8n](https://n8n.io). It includes the node linter and other dependencies.
 
-🔹 Fetch a list of sites registered under your Google Search Console account
+To make your custom node available to the community, you must create it as an npm package, and [submit it to the npm registry](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry).
 
-🔹 Retrieve performance insights for specific pages within a defined date range (clicks, impressions, CTR, and position)
+If you would like your node to be available on n8n cloud you can also [submit your node for verification](https://docs.n8n.io/integrations/creating-nodes/deploy/submit-community-nodes/).
 
-## Operations
+## Prerequisites
 
-### 1. Get Sites
+You need the following installed on your development machine:
 
-Retrieves the list of sites registered in your Google Search Console account.
+* [git](https://git-scm.com/downloads)
+* Node.js and npm. Minimum version Node 20. You can find instructions on how to install both using nvm (Node Version Manager) for Linux, Mac, and WSL [here](https://github.com/nvm-sh/nvm). For Windows users, refer to Microsoft's guide to [Install NodeJS on Windows](https://docs.microsoft.com/en-us/windows/dev-environment/javascript/nodejs-on-windows).
+* Install n8n with:
+  ```
+  npm install n8n -g
+  ```
+* Recommended: follow n8n's guide to [set up your development environment](https://docs.n8n.io/integrations/creating-nodes/build/node-development-environment/).
 
-### 2. Get Page Insights
+## Using this starter
 
-Analyzes page performance based on the following parameters:
+These are the basic steps for working with the starter. For detailed guidance on creating and publishing nodes, refer to the [documentation](https://docs.n8n.io/integrations/creating-nodes/).
 
-* **Site URL**: Exact URL or domain property
-* **Start/End Date**: Define the time period
-* **Search Type**: Web / Image / Video / News
-* **Row Limit**: Number of rows to return
-* **Dimensions**: Choose from Page, Query, Country, or Device
+1. [Generate a new repository](https://github.com/n8n-io/n8n-nodes-starter/generate) from this template repository.
+2. Clone your new repo:
+   ```
+   git clone https://github.com/<your organization>/<your-repo-name>.git
+   ```
+3. Run `npm i` to install dependencies.
+4. Open the project in your editor.
+5. Browse the examples in `/nodes` and `/credentials`. Modify the examples, or replace them with your own nodes.
+6. Update the `package.json` to match your details.
+7. Run `npm run lint` to check for errors or `npm run lintfix` to automatically fix errors when possible.
+8. Test your node locally. Refer to [Run your node locally](https://docs.n8n.io/integrations/creating-nodes/test/run-node-locally/) for guidance.
+9. Replace this README with documentation for your node. Use the [README_TEMPLATE](README_TEMPLATE.md) to get started.
+10. Update the LICENSE file to use your details.
+11. [Publish](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry) your package to npm.
 
-## Requirements
+## More information
 
-You must configure the following credentials to use this node:
+Refer to our [documentation on creating nodes](https://docs.n8n.io/integrations/creating-nodes/) for detailed information on building your own nodes.
 
-* **GoogleSearchConsoleOAuth2Api**
+## License
 
-Make sure to set up the credential using OAuth2 with the appropriate scopes for Google Search Console access.
-
-## Notes
-
-* The `Site URL` must match the format of the property in your GSC account:
-
-  * For domain property: `sc-domain:example.com`
-  * For URL-prefix property: `https://www.example.com/`
-
-* An incorrect format or unregistered site will result in an "Invalid URL" error.
-
-## Node Icon
-
-This node uses a simplified version of the official Google Search Console icon.
-
-## Author
-
-Developed by [mrazari](https://mrazari.com), member of the [n8nir.ir](https://n8nir.ir) community — specializing in custom n8n nodes with TypeScript and official API integrations.
-
----
-
-Feel free to reach out for improvements, suggestions, or new feature requests.
+[MIT](https://github.com/n8n-io/n8n-nodes-starter/blob/master/LICENSE.md)

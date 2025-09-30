@@ -218,11 +218,11 @@ export class GoogleSearchConsole implements INodeType {
         displayOptions: { show: { resource: ['site'], operation: ['getPageInsights'] } },
       },
       {
-        displayName: 'Site URL Name or ID',
+        displayName: 'Site Name or ID',
         name: 'siteUrl',
         type: 'options',
-        typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
         description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+        typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
         displayOptions: {
           show: { resource: ['site'], operation: ['getPageInsights'], siteUrlMode: ['list'] },
         },
@@ -331,8 +331,8 @@ export class GoogleSearchConsole implements INodeType {
                 { name: 'Not Equals', value: 'notEquals' },
               ], default: 'contains' },
             { displayName: 'Combine Values With', name: 'valuesJoin', type: 'options', options: [
-                { name: 'AND (All Match)', value: 'and' },
                 { name: 'OR (Any Match)', value: 'or' },
+                { name: 'AND (All Match)', value: 'and' },
               ], default: 'or' },
             { displayName: 'Expression(s)', name: 'expression', type: 'string', default: '', placeholder: 'e.g. /blog/, summer sale (comma-separated for multiple)' },
           ],
@@ -353,11 +353,11 @@ export class GoogleSearchConsole implements INodeType {
         displayOptions: { show: { resource: ['site'], operation: ['inspectUrl'] } },
       },
       {
-        displayName: 'Site URL Name or ID',
+        displayName: 'Site Name or ID',
         name: 'inspectSiteUrl',
         type: 'options',
-        typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
         description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+        typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
         displayOptions: {
           show: { resource: ['site'], operation: ['inspectUrl'], inspectSiteUrlMode: ['list'] },
         },
@@ -405,11 +405,11 @@ export class GoogleSearchConsole implements INodeType {
         displayOptions: { show: { resource: ['site'], operation: ['comparePageInsights'] } },
       },
       {
-        displayName: 'Site URL Name or ID',
+        displayName: 'Site Name or ID',
         name: 'siteUrlCompare',
         type: 'options',
-        typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
         description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+        typeOptions: { loadOptionsMethod: 'getVerifiedSites' },
         displayOptions: {
           show: { resource: ['site'], operation: ['comparePageInsights'], siteUrlModeCompare: ['list'] },
         },
@@ -554,7 +554,7 @@ export class GoogleSearchConsole implements INodeType {
           const sites: GscSiteEntry[] = Array.isArray(resp?.siteEntry) ? resp.siteEntry : [];
           if (!sites.length) {
             return [{
-              name: 'No Verified Properties Found — Verify Your Site in Google Search Console First.',
+              name: 'No Verified Properties Found — Verify Your Site In Google Search Console First.',
               value: '__NO_SITES__',
             }];
           }
@@ -583,20 +583,9 @@ export class GoogleSearchConsole implements INodeType {
     const returnData: INodeExecutionData[] = [];
 
     for (let i = 0; i < items.length; i++) {
-      const operation = this.getNodeParameter('operation', i) as string;
-
-      const continueOnFail = this.getNodeParameter('continueOnFail', i, false) as boolean;
-
-      const pushOk = (json: any) => returnData.push({ json, pairedItem: { item: i } });
-      const pushErr = (e: unknown) => {
-        if (continueOnFail) {
-          pushOk({ error: (e as Error)?.message ?? e });
-        } else {
-          throw e;
-        }
-      };
-
       try {
+        const operation = this.getNodeParameter('operation', i) as string;
+
         // Build dimensionFilterGroups (per item) from Filters
         const filtersCollection = this.getNodeParameter('filters.filter', i, []) as IDataObject[];
         const dimensionFilterGroups: IDataObject[] = [];
@@ -630,7 +619,7 @@ export class GoogleSearchConsole implements INodeType {
             { method: 'GET', url: 'https://www.googleapis.com/webmasters/v3/sites' },
           );
           const sites: GscSiteEntry[] = Array.isArray(resp?.siteEntry) ? resp.siteEntry : [];
-          sites.forEach((s) => pushOk(s));
+          sites.forEach((s) => returnData.push({ json: s, pairedItem: { item: i } }));
         }
 
         if (operation === 'getPageInsights') {
@@ -659,7 +648,7 @@ export class GoogleSearchConsole implements INodeType {
             searchType
           };
           const rows = await fetchAllRows(this, siteUrl, body, rowLimit);
-          rows.forEach((r) => pushOk(mapRow(dimensions, r)));
+          rows.forEach((r) => returnData.push({ json: mapRow(dimensions, r), pairedItem: { item: i } }));
         }
 
         if (operation === 'inspectUrl') {
@@ -687,7 +676,7 @@ export class GoogleSearchConsole implements INodeType {
             },
           );
           const result = resp?.inspectionResult || {};
-          pushOk(result);
+          returnData.push({ json: result, pairedItem: { item: i } });
         }
 
         /* ---------- Compare Page Insights ---------- */
@@ -747,8 +736,8 @@ export class GoogleSearchConsole implements INodeType {
               keys: keys ?? [], clicks: 0, impressions: 0, ctr: 0, position: 0,
             });
 
-            const valsA: GscQueryRow = ra ?? emptyFrom((ra as GscQueryRow | undefined)?.keys ?? (rb as GscQueryRow | undefined)?.keys);
-            const valsB: GscQueryRow = rb ?? emptyFrom((rb as GscQueryRow | undefined)?.keys ?? (ra as GscQueryRow | undefined)?.keys);
+            const valsA: GscQueryRow = ra ?? emptyFrom(rb?.keys);
+            const valsB: GscQueryRow = rb ?? emptyFrom(ra?.keys);
 
             const out: Record<string, any> = {};
             (valsA.keys ?? valsB.keys ?? []).forEach((v: string, idx: number) => { out[dims[idx]] = v; });
@@ -767,7 +756,26 @@ export class GoogleSearchConsole implements INodeType {
         }
 
       } catch (error) {
-        pushErr(error);
+        // Handle errors according to n8n best practices
+        if (this.continueOnFail()) {
+          // If continueOnFail is enabled, add the error to the output
+          returnData.push({ 
+            json: this.getInputData(i)[0].json,
+            error, 
+            pairedItem: { item: i } 
+          });
+        } else {
+          // If continueOnFail is disabled, throw the error with proper context
+          if (error.context) {
+            // If the error already has context, just add itemIndex
+            error.context.itemIndex = i;
+            throw error;
+          }
+          // Otherwise wrap it in NodeOperationError with itemIndex
+          throw new NodeOperationError(this.getNode(), error, {
+            itemIndex: i,
+          });
+        }
       }
     }
     return [returnData];
